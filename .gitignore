@@ -2,8 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-.bam
-.gtf
-.fa
-.fastq.gz
-.fastq
+*.bam
+*.gtf
+*.fa
+*.fastq.gz
+*.fastq
