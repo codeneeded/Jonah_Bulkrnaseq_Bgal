@@ -381,7 +381,7 @@ dev.off()
 
 
 #### Heatmap of Shared genes
-# shared_genes <- shared_genes[-1]
+#shared_genes <- shared_genes[-1]
 
 # ---- 1. Get normalized expression (rlog or counts) ----
 rld <- rlog(dds_all, blind = TRUE)
@@ -416,7 +416,7 @@ group_expr <- sapply(split(metadata_rld$Sample, metadata_rld$Group), function(sa
 # ---- 6. Create Heatmap ----
 pheatmap(
   group_expr,
-  cluster_rows = TRUE,
+  cluster_rows = T,
   cluster_cols = TRUE,
   scale = "row",
   color = colorRampPalette(c("forestgreen", "white", "navy"))(100),
@@ -432,7 +432,7 @@ png(file = file.path(dge_output_dir, "Heatmap_SharedGenes_CD4_CD8_BGal.png"),
 
 pheatmap(
   group_expr,
-  cluster_rows = TRUE,
+  cluster_rows = T,
   cluster_cols = TRUE,
   scale = "row",
   color = colorRampPalette(c("forestgreen", "white", "navy"))(100),
@@ -445,112 +445,103 @@ pheatmap(
 dev.off()
 
 
-################ Heatmaps for top DGE ################################
+####################### Heatmaps for top DGE #############################
+
+# Rename and map symbols
 symbol_map <- symbol_map %>% rename(Gene = ensembl_gene_id, Symbol = hgnc_symbol)
 symbol_map <- symbol_map %>% rename(Ensembl_ID = Gene)
 
-# Join to CD4 and CD8 result tables
-res_cd4_df <- left_join(res_cd4_df, symbol_map, by = "Ensembl_ID")
-res_cd8_df <- left_join(res_cd8_df, symbol_map, by = "Ensembl_ID")
+# Join symbol map to CD4 and CD8 result tables
+res_cd4_df <- left_join(res_cd4_df, symbol_map, by = "Ensembl_ID") %>% rename(Gene = Ensembl_ID)
+res_cd8_df <- left_join(res_cd8_df, symbol_map, by = "Ensembl_ID") %>% rename(Gene = Ensembl_ID)
 
-res_cd4_df <- res_cd4_df %>% rename(Gene = Ensembl_ID)
-res_cd8_df <- res_cd8_df %>% rename(Gene = Ensembl_ID)
+# Annotate symbols (not strictly necessary now)
+res_cd4_df$symbol <- symbol_map$Symbol[match(res_cd4_df$Gene, symbol_map$Ensembl_ID)]
+res_cd8_df$symbol <- symbol_map$Symbol[match(res_cd8_df$Gene, symbol_map$Ensembl_ID)]
 
-# Annotate CD4 results
-res_cd4_df$symbol <- symbol_map$hgnc_symbol[match(res_cd4_df$Gene, symbol_map$ensembl_gene_id)]
+# ----- CD4 Heatmap -----
 
-# Annotate CD8 results
-res_cd8_df$symbol <- symbol_map$hgnc_symbol[match(res_cd8_df$Gene, symbol_map$ensembl_gene_id)]
-
-# ---- 1. Select Top 20 Up and Down Genes for CD4 ----
-# Only keep genes with non-blank symbols
-res_cd4_df_filtered <- res_cd4_df %>%
-  filter(Symbol != "" & !is.na(padj))
+# Filter non-blank symbols and valid padj
+res_cd4_df_filtered <- res_cd4_df %>% filter(Symbol != "" & !is.na(padj))
 
 # Top 20 upregulated
-top_cd4_up <- res_cd4_df_filtered %>%
-  arrange(desc(log2FoldChange)) %>%
-  head(20)
+top_cd4_up <- res_cd4_df_filtered %>% arrange(desc(log2FoldChange)) %>% head(20)
 
 # Top 20 downregulated
-top_cd4_down <- res_cd4_df_filtered %>%
-  arrange(log2FoldChange) %>%
-  head(20)
+top_cd4_down <- res_cd4_df_filtered %>% arrange(log2FoldChange) %>% head(20)
 
-# Combine gene symbols
 cd4_top_genes <- unique(c(top_cd4_up$Symbol, top_cd4_down$Symbol))
 
-# ---- 2. Subset expression matrix ----
+# Subset expression matrix
 norm_cd4 <- norm_expr[rownames(norm_expr) %in% cd4_top_genes, ]
 metadata_cd4_rld <- metadata_rld %>% filter(Cell_Type == "CD4")
 
-group_expr_cd4 <- sapply(
-  split(metadata_cd4_rld$Sample, metadata_cd4_rld$Group),
-  function(samples) rowMeans(norm_cd4[, samples, drop = FALSE], na.rm = TRUE)
-)
+# Order samples to match metadata
+metadata_cd4_rld <- metadata_cd4_rld %>% arrange(Sample)
+norm_cd4_subset <- norm_cd4[, metadata_cd4_rld$Sample]
 
-# ---- 3. Heatmap for CD4 ----
+# Annotation
+annotation_col_cd4 <- data.frame(Group = metadata_cd4_rld$Group)
+rownames(annotation_col_cd4) <- metadata_cd4_rld$Sample
 
+# Plot CD4 heatmap
 png(file = file.path(dge_output_dir, "Heatmap_TopGenes_CD4_BGal.png"),
     width = 2400, height = 3200, res = 300)
 
 pheatmap(
-  group_expr_cd4,
-  cluster_rows = T,
-  cluster_cols = T,
+  norm_cd4_subset,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
   color = colorRampPalette(c("forestgreen", "white", "navy"))(100),
-  scale='column',
+  scale = "row",
   main = "Top DEGs in CD4 B-Gal+ vs B-Gal-",
   fontsize_row = 10,
-  fontsize_col = 12,
+  fontsize_col = 10,
+  annotation_col = annotation_col_cd4,
   border_color = NA
 )
 
 dev.off()
 
-# ---- 4. Repeat for CD8 ----
+# ----- CD8 Heatmap -----
 
-# ---- 1. Select Top 20 Up and Down Genes for CD4 ----
-# Only keep genes with non-blank symbols
-res_cd8_df_filtered <- res_cd8_df %>%
-  filter(Symbol != "" & !is.na(padj))
+# Filter non-blank symbols and valid padj
+res_cd8_df_filtered <- res_cd8_df %>% filter(Symbol != "" & !is.na(padj))
 
 # Top 20 upregulated
-top_cd8_up <- res_cd4_df_filtered %>%
-  arrange(desc(log2FoldChange)) %>%
-  head(20)
+top_cd8_up <- res_cd8_df_filtered %>% arrange(desc(log2FoldChange)) %>% head(20)
 
 # Top 20 downregulated
-top_cd8_down <- res_cd4_df_filtered %>%
-  arrange(log2FoldChange) %>%
-  head(20)
+top_cd8_down <- res_cd8_df_filtered %>% arrange(log2FoldChange) %>% head(20)
 
-# Combine gene symbols
 cd8_top_genes <- unique(c(top_cd8_up$Symbol, top_cd8_down$Symbol))
 
-# ---- 2. Subset expression matrix ----
+# Subset expression matrix
 norm_cd8 <- norm_expr[rownames(norm_expr) %in% cd8_top_genes, ]
 metadata_cd8_rld <- metadata_rld %>% filter(Cell_Type == "CD8")
 
-group_expr_cd8 <- sapply(
-  split(metadata_cd8_rld$Sample, metadata_cd8_rld$Group),
-  function(samples) rowMeans(norm_cd8[, samples, drop = FALSE], na.rm = TRUE)
-)
+# Order samples to match metadata
+metadata_cd8_rld <- metadata_cd8_rld %>% arrange(Sample)
+norm_cd8_subset <- norm_cd8[, metadata_cd8_rld$Sample]
 
-# ---- 3. Heatmap for CD8 ----
+# Annotation
+annotation_col_cd8 <- data.frame(Group = metadata_cd8_rld$Group)
+rownames(annotation_col_cd8) <- metadata_cd8_rld$Sample
 
-png(file = file.path(dge_output_dir, "Heatmap_TopGenes__CD8_BGal.png"),
+# Plot CD8 heatmap
+png(file = file.path(dge_output_dir, "Heatmap_TopGenes_CD8_BGal.png"),
     width = 2400, height = 3200, res = 300)
 
 pheatmap(
-  group_expr_cd8,
-  cluster_rows = T,
-  cluster_cols = T,
+  norm_cd8_subset,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
   color = colorRampPalette(c("forestgreen", "white", "navy"))(100),
-  scale='column', ### SCALE BY ROW FOR BLOCK
+  scale = "row",
   main = "Top DEGs in CD8 B-Gal+ vs B-Gal-",
   fontsize_row = 10,
-  fontsize_col = 12,
+  fontsize_col = 10,
+  annotation_col = annotation_col_cd8,
   border_color = NA
 )
 
