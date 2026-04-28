@@ -142,8 +142,6 @@ The bulk-derived senescence DEG sets are taken into a **scRNA-seq dataset** *(sp
    5. `CD8_Module_Scoring_scRNAseq.R` — requires the external scRNA-seq object *(specify path / accession)*
 4. Outputs regenerate under `DGE/`, `Enrichr/`, `Pathway_Overlay/`, `scRNAseq/Module_Score/`.
 
-> Raw FASTQs are not committed. *(Add GEO/SRA accession or data-availability statement here.)*
-
 ---
 
 ## Key results at a glance
